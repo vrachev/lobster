@@ -85,7 +85,7 @@ function makeApp(logsPath, cache, isE2E) {
             if (!err) {
               console.log('done');
               myCache.put(fileName, result)
-                .then(data => res.send(data));
+                .then(data => res.send("VLAD"));
             } else {
               console.log('Error: ' + err);
             }

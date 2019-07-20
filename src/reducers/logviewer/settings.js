@@ -9,6 +9,7 @@ const initialState: Settings = {
   wrap: window.localStorage.getItem('lobster-line-wrap') === 'true',
   caseSensitive: false,
   filterIntersection: false,
+  sortByProcessTS: false,
   expandableRows: expandableRowsLocalSetting === null ? true : // Enabled by default
                   expandableRowsLocalSetting === 'true' // when opt set, use local setting
 };
@@ -34,6 +35,12 @@ export default function(state: Settings = initialState, action: Action): Setting
   if (action.payload.setting === 'expandable-rows') {
     window.localStorage.setItem('lobster-expandable-rows', !state.expandableRows);
     return { ...state, expandableRows: !state.expandableRows };
+  }
+
+  if (action.payload.setting === 'sort-by-process-ts') {
+    console.log("VLAD: " +  JSON.stringify(state, null, 2));
+    return { ...state, sortByProcessTS: !state.sortByProcessTS };
+
   }
 
   return state;

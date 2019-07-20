@@ -22,6 +22,7 @@ type Props = {
     toggleCaseSensitive: () => void,
     toggleFilterIntersection: () => void,
     toggleExpandableRows: () => void,
+    toggleSortByProcessTS: () => void,
   },
   filterActions: {
     removeFilter: (string) => void,
@@ -136,6 +137,10 @@ export class CollapseMenu extends React.PureComponent<Props> {
     }
   }
 
+  toggleSortByProcessTS = () => {
+    console.log("VLAD SORTED THIS ISH");
+  }
+
   render() {
     return (
       <Collapse className="collapse-menu" in={this.props.detailsOpen}>
@@ -165,6 +170,20 @@ export class CollapseMenu extends React.PureComponent<Props> {
                   name="case-sensitive-on-off"
                   value={this.props.settings.caseSensitive}
                   onChange={this.props.toggleSettings.toggleCaseSensitive}
+                >
+                  <ToggleButton value={true} bsSize="small" bsStyle="primary">on</ToggleButton>
+                  <ToggleButton value={false} bsSize="small" bsStyle="primary">off</ToggleButton>
+                </ToggleButtonGroup>
+              </FormGroup>
+
+              <FormGroup>
+                <label className="control-label col-sm-8">Sort By Process TS</label>
+                <ToggleButtonGroup
+                  className="toggle-buttons"
+                  type="radio"
+                  name="sort-by-time-stamp"
+                  value={this.props.settings.sortByProcessTS}
+                  onChange={this.props.toggleSettings.toggleSortByProcessTS}
                 >
                   <ToggleButton value={true} bsSize="small" bsStyle="primary">on</ToggleButton>
                   <ToggleButton value={false} bsSize="small" bsStyle="primary">off</ToggleButton>
@@ -259,6 +278,7 @@ function mapDispatchToProps(dispatch: Dispatch<*>, ownProps) {
     toggleCaseSensitive: () => dispatch(actions.toggleCaseSensitivity()),
     toggleFilterIntersection: () => dispatch(actions.toggleFilterIntersection()),
     toggleExpandableRows: () => dispatch(actions.toggleExpandableRows()),
+    toggleSortByProcessTS: ()  => dispatch(actions.toggleSortByProcessTS()),
   };
 
   return {

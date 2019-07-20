@@ -29,6 +29,7 @@ type Props = {
   expandableFilterData: Array<Line | number>,
   findResults: SearchResults,
   toggleBookmark: (number[]) => void,
+  sortByProcessTS:  boolean,
   scrollToLine: (number) => void
 };
 
@@ -42,6 +43,64 @@ type SkipLine = {|
 function newSkipLine(start, end): SkipLine {
   return { start: start, end: end, kind: 'SkipLine' }
 }
+
+function sortLines(lines: Array<Line>): Array<Line> {
+  let lineTSMap = {};
+  let linesWithoutTS = [];
+ 
+  for (let line of lines) {
+    line = line.text;
+    let ts;
+    let found;
+
+    // If the line was logged by a mongod or mongos node, use the inner timestamp after the node descriptor (e.g., "c23014|").
+    // Example line:
+    // [js_test:remove3] 2016-11-07T19:01:39.980+0000 c23014| 2016-11-07T19:01:39.979+0000 D REPL     [rsBackgroundSync] Cannot select sync source because it is not up: ip-10-152-38-201:23012
+    found = line.match(/\| .*\+0000 . /);
+    if (found) {
+      ts  = found[0].substring(2, found[0].length - 3);
+      if (lineTSMap.hasOwnProperty(ts)) {
+        lineTSMap[ts].push(line);
+      } else {
+        lineTSMap[ts] = [line];
+      }
+      continue;
+    }
+
+    // Otherwise if the line was logged by a mongo shell process, user the inner timestamp after the outer timestamp.
+    // Example line:
+    // [js_test:remove3] 2016-11-07T19:01:39.998+0000 2016-11-07T19:01:39.996+0000 I NETWORK  [thread1] reconnect ip-10-152-38-201:23012 (10.152.38.201) failed failed
+    found = line.match(/0000 .*\+0000 . /);
+    if (found) {
+      ts  = found[0].substring(5, found[0].length - 3);
+      if (lineTSMap.hasOwnProperty(ts)) {
+        lineTSMap[ts].push(line);
+      } else {
+        lineTSMap[ts] = [line];
+      }
+      continue;
+    }
+
+    // Otherwise, use the outer timestamp.
+    // Example line:
+    // [js_test:remove3] 2016-11-07T19:01:42.411+0000 ReplSetTest stop *** Shutting down mongod in port 23012 ***
+    found = line.match(/20.*\+0000/);
+    if (found) {
+      ts  = found[0];
+      if (lineTSMap.hasOwnProperty(ts)) {
+        lineTSMap[ts].push(line);
+      } else {
+        lineTSMap[ts] = [line];
+      }
+      continue;
+    }
+
+    // Print lines without any timestamp first.
+    linesWithoutTS.push(line);
+  }
+  console.log("VLADJSON: " + Object.keys(lineTSMap).length);
+  return lines.slice(0, 10);
+} 
 
 type State = {
   selectStartIndex: ?number,
@@ -131,10 +190,15 @@ class LogView extends React.Component<Props, State> {
     // don't display expandable rows
     if (!this.props.expandableRows) {
       // $FlowFixMe flow is just broken :'(
+      if (this.props.sortByProcessTS) {
+        console.log("VLADSUCCEEDS1");
+        return sortLines(lines);
+      }
       return lines.filter((line) => line.isMatched)
     }
 
     const out: Array<Line | SkipLine> = []
+
     let inSkipState = false
     let skipStart: number = 0
     const expandedRanges = this.state ? this.state.expandedRanges : []
@@ -170,6 +234,10 @@ class LogView extends React.Component<Props, State> {
     // Finalization
     if (inSkipState) {
       out.push(newSkipLine(skipStart, lines.length - 1))
+    }
+
+    if (this.props.sortByProcessTS) {
+      return sortLines(out);
     }
 
     return out
@@ -366,6 +434,7 @@ function mapStateToProps(state: ReduxState, ownProps: $Shape<Props>): $Shape<Pro
     caseSensitive: settings.caseSensitive,
     wrap: settings.wrap,
     expandableRows: settings.expandableRows,
+    sortByProcessTS: settings.sortByProcessTS,
     searchTerm: selectors.getLogViewerSearchTerm(state),
     scrollLine: selectors.getLogViewerScrollLine(state),
     searchFindIdx: selectors.getLogViewerFindIdx(state),

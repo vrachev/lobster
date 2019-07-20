@@ -156,6 +156,10 @@ export function toggleExpandableRows(): ChangeSetting {
   return toggleSetting('expandable-rows');
 }
 
+export function toggleSortByProcessTS():  ChangeSetting {
+  return toggleSetting('sort-by-process-ts');
+}
+
 export function loadInitialFilters(initialFilters: Filter[]): LoadFilters {
   return {
     type: LOGVIEWER_LOAD_FILTERS,
