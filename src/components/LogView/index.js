@@ -44,83 +44,6 @@ function newSkipLine(start, end): SkipLine {
   return { start: start, end: end, kind: 'SkipLine' }
 }
 
-function sortLines(lines: Array<Line>): Array<Line> {
-  let tsToLine = {};
-  let linesWithoutTS = [];
- 
-  for (let line of lines) {
-    let lineText = line.text;
-    let ts;
-    let found;
-
-    // If the line was logged by a mongod or mongos node, use the inner timestamp after the node descriptor (e.g., "c23014|").
-    // Example line:
-    // [js_test:remove3] 2016-11-07T19:01:39.980+0000 c23014| 2016-11-07T19:01:39.979+0000 D REPL     [rsBackgroundSync] Cannot select sync source because it is not up: ip-10-152-38-201:23012
-    found = lineText.match(/\| .*?\+0000 . /);
-    if (found) {
-      // ts  = new Date(found[0].substring(2, found[0].length - 3));
-      ts = new Date(found[0].substring(2, found[0].length - 3)).getTime();
-      if (tsToLine.hasOwnProperty(ts)) {
-        tsToLine[ts].push(line);
-        // console.log("VLAD1 length: " + Object.keys(tsToLine).length);
-        // console.log("ts1: " + found[0].substring(2, found[0].length - 3));
-      } else {
-        tsToLine[ts] = [line];
-      }
-      continue;
-    }
-
-    // Otherwise if the line was logged by a mongo shell process, user the inner timestamp after the outer timestamp.
-    // Example line:
-    // [js_test:remove3] 2016-11-07T19:01:39.998+0000 2016-11-07T19:01:39.996+0000 I NETWORK  [thread1] reconnect ip-10-152-38-201:23012 (10.152.38.201) failed failed
-    found = lineText.match(/0000 .*?\+0000 . /);
-    if (found) {
-      // ts  = new Date(found[0].substring(5, found[0].length - 3));
-      ts = new Date(found[0].substring(5, found[0].length - 3)).getTime();
-      if (tsToLine.hasOwnProperty(ts)) {
-        tsToLine[ts].push(line);
-        // console.log("VLAD2 length: " + Object.keys(tsToLine).length);
-        // console.log("ts2: " + found[0].substring(5, found[0].length - 3));
-      } else {
-        tsToLine[ts] = [line];
-      }
-      continue;
-    }
-
-    // Otherwise, use the outer timestamp.
-    // Example line:
-    // [js_test:remove3] 2016-11-07T19:01:42.411+0000 ReplSetTest stop *** Shutting down mongod in port 23012 ***
-    found = lineText.match(/20.*?\+0000/);
-    if (found) {
-      // ts  = new Date(found[0]);
-      ts = new Date(found[0]).getTime();
-      if (tsToLine.hasOwnProperty(ts)) {
-        tsToLine[ts].push(line);
-        // console.log("VLAD3 length: " + Object.keys(tsToLine).length);
-        // console.log("ts3: " + found[0]);
-      } else {
-        tsToLine[ts] = [line];
-      }
-      continue;
-    }
-
-    // Print lines without any timestamp first.
-    linesWithoutTS.push(line);
-  }
-
-  let keys = Object.keys(tsToLine);
-  let sortedTS = keys.sort();
-  let out = linesWithoutTS;
-  for (let ts of sortedTS) {
-    out = out.concat(tsToLine[ts]);
-  }
-
-  console.log("VLADlength: " + keys.length);
-  //console.log("VladOut: " + out);
-
-  return out;
-}
-
 type State = {
   selectStartIndex: ?number,
   selectEndIndex: ?number,
@@ -209,10 +132,6 @@ class LogView extends React.Component<Props, State> {
     // don't display expandable rows
     if (!this.props.expandableRows) {
       // $FlowFixMe flow is just broken :'(
-      if (this.props.sortByProcessTS) {
-        console.log("VLADSUCCEEDS1");
-        return sortLines(lines);
-      }
       return lines.filter((line) => line.isMatched)
     }
 
@@ -255,11 +174,84 @@ class LogView extends React.Component<Props, State> {
       out.push(newSkipLine(skipStart, lines.length - 1))
     }
 
-    if (this.props.sortByProcessTS) {
-      return sortLines(out);
+    return out
+  }
+
+  sortLinesByProcessTS(lines: Array<Line>): Array<Line> {
+    let tsToLine = {};
+    let linesWithoutTS = [];
+  
+    for (let line of lines) {
+      let lineText = line.text;
+      let ts;
+      let found;
+
+      // If the line was logged by a mongod or mongos node, use the inner timestamp after the node descriptor (e.g., "c23014|").
+      // Example line:
+      // [js_test:remove3] 2016-11-07T19:01:39.980+0000 c23014| 2016-11-07T19:01:39.979+0000 D REPL     [rsBackgroundSync] Cannot select sync source because it is not up: ip-10-152-38-201:23012
+      found = lineText.match(/\| .*?\+0000 . /);
+      if (found) {
+        // ts  = new Date(found[0].substring(2, found[0].length - 3));
+        ts = new Date(found[0].substring(2, found[0].length - 3)).getTime();
+        if (tsToLine.hasOwnProperty(ts)) {
+          tsToLine[ts].push(line);
+          // console.log("VLAD1 length: " + Object.keys(tsToLine).length);
+          // console.log("ts1: " + found[0].substring(2, found[0].length - 3));
+        } else {
+          tsToLine[ts] = [line];
+        }
+        continue;
+      }
+
+      // Otherwise if the line was logged by a mongo shell process, user the inner timestamp after the outer timestamp.
+      // Example line:
+      // [js_test:remove3] 2016-11-07T19:01:39.998+0000 2016-11-07T19:01:39.996+0000 I NETWORK  [thread1] reconnect ip-10-152-38-201:23012 (10.152.38.201) failed failed
+      found = lineText.match(/0000 .*?\+0000 . /);
+      if (found) {
+        // ts  = new Date(found[0].substring(5, found[0].length - 3));
+        ts = new Date(found[0].substring(5, found[0].length - 3)).getTime();
+        if (tsToLine.hasOwnProperty(ts)) {
+          tsToLine[ts].push(line);
+          // console.log("VLAD2 length: " + Object.keys(tsToLine).length);
+          // console.log("ts2: " + found[0].substring(5, found[0].length - 3));
+        } else {
+          tsToLine[ts] = [line];
+        }
+        continue;
+      }
+
+      // Otherwise, use the outer timestamp.
+      // Example line:
+      // [js_test:remove3] 2016-11-07T19:01:42.411+0000 ReplSetTest stop *** Shutting down mongod in port 23012 ***
+      found = lineText.match(/20.*?\+0000/);
+      if (found) {
+        // ts  = new Date(found[0]);
+        ts = new Date(found[0]).getTime();
+        if (tsToLine.hasOwnProperty(ts)) {
+          tsToLine[ts].push(line);
+          // console.log("VLAD3 length: " + Object.keys(tsToLine).length);
+          // console.log("ts3: " + found[0]);
+        } else {
+          tsToLine[ts] = [line];
+        }
+        continue;
+      }
+
+      // Print lines without any timestamp first.
+      linesWithoutTS.push(line);
     }
 
-    return out
+    let keys = Object.keys(tsToLine);
+    let sortedTS = keys.sort();
+    let out = linesWithoutTS;
+    for (let ts of sortedTS) {
+      out = out.concat(tsToLine[ts]);
+    }
+
+    console.log("VLADlength: " + keys.length);
+    //console.log("VladOut: " + out);
+
+    return out;
   }
 
   setLogListRef = (element) => {
@@ -420,8 +412,12 @@ class LogView extends React.Component<Props, State> {
     }
 
     if (this.props !== prevProps || this.state.expandedRanges !== prevState.expandedRanges) {
+      let processedLines = this.props.filteredLines;
+      if (this.props.sortByProcessTS === true && this.props.sortByProcessTS !== prevProps.sortByProcessTS) {
+        processedLines = this.sortLinesByProcessTS(processedLines);
+      }
       this.setState({
-        lines: this.foldUnmatchedLines(this.props.filteredLines)
+        lines: this.foldUnmatchedLines(processedLines),
       })
     }
   }
